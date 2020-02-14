@@ -237,8 +237,8 @@ def Encrypt():
     for i in range(mid-1, -1, -1): 
         rDiff[i] = rDiff[i+1] + fDiff[i] + beta*(P2[2*i] if rDiff[i+1]&1==0 else P2[2*i + 1])
 
-    fDiff=count_greater_255(fDiff)
-    rDiff=count_greater_255(rDiff)   
+    #fDiff=count_greater_255(fDiff)
+    #rDiff=count_greater_255(rDiff)   
     
     if cfg.DEBUG_DIFFUSION==True:
         print("\nfDiff=")
