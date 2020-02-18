@@ -95,7 +95,16 @@ def rotateRow(img, row, rowID, offset):
     for j in range(img.shape[1]): # For each column
         img[rowID][j] = row[(j+offset)%rowLen]
 
-def Decrypt():
+def preventDifferenceOverflow(val1):
+    res=0
+    if val1 >= 0 and val1 <=255:
+        return val1
+    else:         
+        result=val1+256
+        #print("\nOverflow occurred")
+        return result
+
+def Encrypt():
     # Read image
     print("\nIn RBD\n")
     img, m, n = Init()
@@ -128,8 +137,11 @@ def Decrypt():
     
     # Flatten image to image Reverse-Diffused vector
     rDiff = np.asarray(img).reshape(-1)
-    fDiff = np.empty_like(rDiff)
-    imgVec = np.empty_like(rDiff)
+    rDiff = rDiff.astype(int)
+    #fDiff = np.empty_like(rDiff)
+    #imgVec = np.empty_like(rDiff)
+    fDiff=np.zeros((m*n),dtype=int)
+    imgVec=np.zeros((m*n),dtype=int)
     mn = len(rDiff)
     mid = mn//2
     f, r = 0, 0
@@ -139,12 +151,13 @@ def Decrypt():
     for i in range(0, mid):
         fDiff[i] = rDiff[i] - rDiff[i+1] - beta*(P2[2*i] if rDiff[i+1]&1==0 else P2[2*i + 1])
 
+        fDiff[i]=preventDifferenceOverflow(fDiff[i])
         if rDiff[i+1]&1==0:
             print("\ni="+str(i))
-            print("\nfDiff[i]="+str(fDiff[i])+"\trDiff[i]="+str(rDiff[i])+"\trDiff[i+1]="+str(rDiff[i+1])+"\tP2[2*i]="+str(P2[2*i]))
+            print("{0} = {1} - {2} - {3}\n".format(fDiff[i],rDiff[i],rDiff[i+1],P2[2*i]))
         else:
             print("\ni="+str(i))
-            print("\nfDiff[i]="+str(fDiff[i])+"\trDiff[i]="+str(rDiff[i])+"\trDiff[i+1]="+str(rDiff[i+1])+"\tP2[2*i+1]="+str(P2[2*i+1]))
+            print("{0} = {1} - {2} - {3}\n".format(fDiff[i],rDiff[i],rDiff[i+1],P2[2*i+1]))
 
     print("\nREGENERATE FDIFF 2nd PHASE\n")
     j = 0
@@ -152,23 +165,26 @@ def Decrypt():
     for i in range(mid, mn-1):
         fDiff[i] = rDiff[i] - rDiff[i+1] - beta*(P2[2*j] if rDiff[i+1]&1==0 else P2[2*j + 1])
         
+        fDiff[i]=preventDifferenceOverflow(fDiff[i])
         if rDiff[i+1]&1==0:
             print("\ni="+str(i))
             print("\nj="+str(j))
-            print("\nfDiff[i]="+str(fDiff[i])+"\trDiff[i]="+str(rDiff[i])+"\trDiff[i+1]="+str(rDiff[i+1])+"\tP2[2*j]="+str(P2[2*j]))
+            print("{0} = {1} - {2} - {3}\n".format(fDiff[i],rDiff[i],rDiff[i+1],P2[2*j]))
         else:
             print("\ni="+str(i))
             print("\nj="+str(j))
-            print("\nfDiff[i]="+str(fDiff[i])+"\trDiff[i]="+str(rDiff[i])+"\trDiff[i+1]="+str(rDiff[i+1])+"\tP2[2*j+1]="+str(P2[2*j+1]))
+            print("{0} = {1} - {2} - {3}\n".format(fDiff[i],rDiff[i],rDiff[i+1],P2[2*j+1]))
 
         j += 1
 
     fDiff[mn-1] = rDiff[mn-1] - r  - beta*(P2[mn-2] if r&1==0 else P2[mn-1])
+    fDiff[mn-1]=preventDifferenceOverflow(fDiff[mn-1])
 
     if r&1==0:
-        print("\nfDiff[mn-1]="+str(fDiff[mn-1])+"\trDiff[mn-1]="+str(rDiff[mn-1])+"\tr="+str(r)+"\t"+"\tP2[mn-2]="+str(P2[mn-2]))
+
+        print("{0} = {1} - {2} - {3}\n".format(fDiff[mn-1],rDiff[mn-1],r,P2[mn-2]))
     else:
-        print("\nfDiff[mn-1]="+str(fDiff[mn-1])+"\trDiff[mn-1]="+str(rDiff[mn-1])+"\tr="+str(r)+"\t"+"\tP2[mn-1]="+str(P2[mn-1]))
+        print("{0} = {1} - {2} - {3}\n".format(fDiff[mn-1],rDiff[mn-1],r,P2[mn-1]))
 
     print("\nREGENERATE IMGVEC\n")
 
@@ -178,34 +194,36 @@ def Decrypt():
     for i in range(mn-1, mid-1, -1):
         imgVec[i] = fDiff[i] - fDiff[i-1] - alpha*(P1[2*j] if fDiff[i-1]&1==0 else P1[2*j + 1])
         
-        if fDiff[i-1]==0:
+        imgVec[i]=preventDifferenceOverflow(imgVec[i])
+        if fDiff[i-1]&1==0:
             print("\ni="+str(i))
             print("\nj="+str(j))
-            print("\nimgVec[i]="+str(imgVec[i])+"\tfDiff[i]="+str(fDiff[i])+"\tfDiff[i-1]="+str(fDiff[i-1])+"\tP1[2*j]="+str(P1[2*j]))
+            print("{0} = {1} - {2} - {3}\n".format(imgVec[i],fDiff[i],fDiff[i-1],P1[2*j]))
         else:
             print("\ni="+str(i))
             print("\nj="+str(j))
-            print("\nimgVec[i]="+str(imgVec[i])+"\tfDiff[i]="+str(fDiff[i])+"\tfDiff[i-1]="+str(fDiff[i-1])+"\tP1[2*j+1]="+str(P1[2*j+1]))   
+            print("{0} = {1} - {2} - {3}\n".format(imgVec[i],fDiff[i],fDiff[i-1],P1[2*j+1]))   
 
         j -= 1
     
     for i in range(mid-1, -1, -1):
         imgVec[i] = fDiff[i] - fDiff[i-1] - alpha*(P1[2*i] if fDiff[i-1]&1==0 else P1[2*i + 1])
 
-        if fDiff[i-1]==0:
+        imgVec[i]=preventDifferenceOverflow(imgVec[i])
+        if fDiff[i-1]&1==0:
             print("\ni="+str(i))
-   
-            print("\nimgVec[i]="+str(imgVec[i])+"\tfDiff[i]="+str(fDiff[i])+"\tfDiff[i-1]="+str(fDiff[i-1])+"\tP1[2*i]="+str(P1[2*i]))
+            print("{0} = {1} - {2} - {3}\n".format(imgVec[i],fDiff[i],fDiff[i-1],P1[2*i]))
         else:
             print("\ni="+str(i))
-            print("\nimgVec[i]="+str(imgVec[i])+"\tfDiff[i]="+str(fDiff[i])+"\tfDiff[i-1]="+str(fDiff[i-1])+"\tP1[2*i+1]="+str(P1[2*i+1]))  
+            print("{0} = {1} - {2} - {3}\n".format(imgVec[i],fDiff[i],fDiff[i-1],P1[2*i+1]))
 
     imgVec[0] = fDiff[0] - f - alpha*(P1[0] if f&1==0 else P1[1])
 
+    imgVec[0]=preventDifferenceOverflow(imgVec[i])
     if f&1==0:
-        print("\nimgVec[0]="+str(imgVec[0])+"\tfDiff[0]="+str(fDiff[0])+"\tf="+str(f)+"\tP1[0]="+str(P1[0]))
+        print("{0} = {1} - {2} - {3}\n".format(imgVec[0],fDiff[0],f,P1[0]))
     else:
-        print("\nimgVec[0]="+str(imgVec[0])+"\tfDiff[0]="+str(fDiff[0])+"\tf="+str(f)+"\tP1[1]="+str(P1[1]))    
+        print("{0} = {1} - {2} - {3}\n".format(imgVec[0],fDiff[0],f,P1[1]))    
 
     if cfg.RESIZE_TO_DEBUG==True:
         print("\nimgVec=")
@@ -248,6 +266,6 @@ def Decrypt():
     
     cv2.imwrite(cfg.DEC_OUT, img)
 
-Decrypt()
+Encrypt()
 cv2.waitKey(0)
 cv2.destroyAllWindows()
