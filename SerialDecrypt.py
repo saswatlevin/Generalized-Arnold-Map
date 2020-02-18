@@ -163,7 +163,6 @@ def Decrypt():
 
         j += 1
 
-    print("\nREGENERATE RDIFF PHASE 1\n")
     fDiff[mn-1] = rDiff[mn-1] - r  - beta*(P2[mn-2] if r&1==0 else P2[mn-1])
 
     if r&1==0:
@@ -171,10 +170,10 @@ def Decrypt():
     else:
         print("\nfDiff[mn-1]="+str(fDiff[mn-1])+"\trDiff[mn-1]="+str(rDiff[mn-1])+"\tr="+str(r)+"\t"+"\tP2[mn-1]="+str(P2[mn-1]))
 
-    print("\nREGENERATE RDIFF PHASE 2\n")
+    print("\nREGENERATE IMGVEC\n")
 
     # Regenerate imgVec[]
-    print("\nj before starting REGENERATE RDIFF PHASE 2=\n"+str(j))
+    print("\nj before starting REGENERATE IMGVEC=\n"+str(j))
     j = mid-1
     for i in range(mn-1, mid-1, -1):
         imgVec[i] = fDiff[i] - fDiff[i-1] - alpha*(P1[2*j] if fDiff[i-1]&1==0 else P1[2*j + 1])

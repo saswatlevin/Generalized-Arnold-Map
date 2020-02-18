@@ -180,6 +180,8 @@ def Encrypt():
     if cfg.DEBUG_CONTROL_PARAMETERS==True:
         print("\nalpha="+str(alpha))
         print("\nbeta="+str(beta))
+    
+    print("\nFDIFF PHASE 1\n") 
     # Forward Diffusion
     fDiff[0] = f + imgVec[0] + alpha*(P1[0] if f&1==0 else P1[1]) # 0
 
@@ -188,7 +190,7 @@ def Encrypt():
     else:
         print("\nf="+str(f)+"\timgVec[0]="+str(imgVec[0])+"\tP1[1]="+str(P1[1]))    
 
-    print("\nFDIFF PHASE 1\n")    
+       
     for i in range(1, mid): # 1->(mid-1)
         fDiff[i] = int(fDiff[i-1] + imgVec[i] + alpha*(P1[2*i] if fDiff[i-1]&1==0 else P1[2*i + 1]))
     
