@@ -1,4 +1,3 @@
-import sys
 import os                   # Path setting and file-retrieval
 import cv2                  # OpenCV
 import time                 # Timing Execution
@@ -7,11 +6,9 @@ import CONFIG as cfg        # Debug flags and constants
 from shutil import rmtree   # Directory removal
 import secrets              # CSPRNG
 import warnings             # Ignore integer overflow during diffusion
-import math                 # For floor()
+from pyfloat import get_n_mantissa_bits # For P1 and P2
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
-#Print a numpy array, no matter its size
-#np.set_printoptions(threshold=sys.maxsize)
 
 os.chdir(cfg.PATH)
 
@@ -34,13 +31,11 @@ def Init():
     img = cv2.imread(cfg.ENC_IN,0)
     if cfg.RESIZE_TO_DEBUG==True:
         img=cv2.resize(img,(cfg.RESIZE_M,cfg.RESIZE_N),interpolation=cv2.INTER_LANCZOS4)
-        print("\ninput image=\n")
+        print("\nInput Image=\n")
         print(img)
     if img is None:
         print("File does not exist!")
         raise SystemExit(0)
-    
-    print("\nM="+str(img.shape[0])+"\nN="+str(img.shape[1]))
     return img, img.shape[0], img.shape[1]
 
 # Generate and return rotation vector of length n containing values < m
@@ -53,6 +48,15 @@ def genRelocVec(m, n, logfile):
     x = secGen.uniform(0.0001,1.0)
     y = secGen.uniform(0.0001,1.0)
     offset = secGen.randint(2,cfg.PERMINTLIM)
+
+    if cfg.DEBUG_CONSTANTS==True:
+        print("\na="+str(a))
+        print("\nb="+str(b))
+        print("\nc="+str(c))
+        print("\nx="+str(x))
+        print("\ny="+str(y))
+        print("\noffset="+str(offset))
+
 
     # Log parameters for decryption
     with open(logfile, 'w+') as f:
@@ -67,6 +71,11 @@ def genRelocVec(m, n, logfile):
         x = (x + a*y)%1 
         y = (b*x + c*y)%1
     
+    if cfg.DEBUG_CONSTANTS==True:
+        print("\nFinal x="+str(x))
+        print("\nFinal y="+str(y))
+
+
     # Start writing intermediate values
     ranF = np.zeros((m*n),dtype=float)
     for i in range(m*n//2):
@@ -74,9 +83,7 @@ def genRelocVec(m, n, logfile):
         y = (b*x + c*y)%1
         ranF[2*i] = x
         ranF[2*i+1] = y
-        if x==0 or y==0:
-            null = "null"
-            return null, null
+
     
     # Generate column-relocation vector
     r = secGen.randint(1,m*n-n)
@@ -85,12 +92,17 @@ def genRelocVec(m, n, logfile):
     for i in range(n):
         vec[i] = int((ranF[r+i]*exp)%m)
 
+    ranFInt=np.zeros((m*n),dtype=np.uint8)
+    for i in range(m*n//2):
+        ranFInt[2*i]=get_n_mantissa_bits(ranF[2*i],cfg.MANTISSA_BITS)    
+        ranFInt[2*i+1]=get_n_mantissa_bits(ranF[2*i+1],cfg.MANTISSA_BITS)
+    
     with open(logfile, 'a+') as f:
         f.write(str(r))
 
-    return ranF, vec
+    return ranFInt, vec
 
-#Column rotation
+# Column rotation
 def rotateColumn(img, col, colID, offset):
     colLen = len(col)
     for i in range(img.shape[0]): # For each row
@@ -102,44 +114,9 @@ def rotateRow(img, row, rowID, offset):
     for j in range(img.shape[1]): # For each column
         img[rowID][j] = row[(j+offset)%rowLen]
 
-#Write image to disk
-def write_image(img,img_path,filename):
-    final_path=img_path+filename
-    cv2.imwrite(final_path,img)
-
-#Displays a given image using pyplot
-def display(img):       
-    imgrgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    plt.imshow(imgrgb)
-    plt.show()
-
-#Write the fDiff to file
-def writefDiff(fDiff,filename):
-    with open(filename,"w+") as f:
-        for i in range(0,len(fDiff)):
-            f.write(str(fDiff[i])+"\n")
-
-#Write the imgVec to a file
-def writeimgVec(imgVec,filename):
-    with open(filename,"w+") as f:
-        for i in range(0,len(imgVec)):
-            f.write(str(imgVec[i])+"\n")         
-
-#Tells us how many elements are  greater than 255
-def count_greater_255(vec):
-    count=0
-    for i in range(len(vec)):
-        if vec[i] > 255:
-            count=count+1
-            
-    print("\ncount="+str(count))
-    for i in range(len(vec)):
-        if vec[i] > 255:
-            vec[i]=vec[i]-255
-    return vec        
-            
 def Encrypt():
     # Read image
+    print("\nIn RBE\n")
     img, m, n = Init()
 
     # Col-rotation | len(U)=n, values from 0->m
@@ -147,44 +124,40 @@ def Encrypt():
     while type(U) is str:
         P1, U = genRelocVec(m,n,"temp/P1.txt")
 
+
     # Row-rotation | len(V)=m, values from 0->n
     P2, V = genRelocVec(n,m,"temp/P2.txt") 
-    
     while type(V) is str:
         P2, V = genRelocVec(n,m,"temp/P2.txt")
 
-    
     if cfg.DEBUG_TRANSLATION==True:
         print("\nU=")
         print(U)
         print("\nV=")
         print(V)
-    
+
     if cfg.DEBUG_SEQUENCES==True:
         print("\nP1=")
         print(P1)
         print("\nP2=")
-        print(P2)    
+        print(P2) 
 
+    
     for i in range(cfg.PERM_ROUNDS):
+        print("\nColumn rotated image=\n")
         # For each column
         for j in range(n):
             if U[j]!=0:
                 rotateColumn(img, np.copy(img[:,j]), j, U[j])
-        
-        if cfg.RESIZE_TO_DEBUG==True:
-            print("\nColumn rotated image=\n")
-            print(img)
-
+        print(img)
+    
+        print("\nColumn and row rotated image\n")
         # For each row
         for i in range(m):
             if V[i]!=0:
                 rotateRow(img, np.copy(img[i,:]), i, V[i])
-
-        if cfg.RESIZE_TO_DEBUG==True:
-            print("\nColumn and Row rotated image=\n")
-            print(img)
-
+        print(img)
+    
     if cfg.DEBUG_IMAGES==True:
         cv2.imwrite(cfg.PERM, img)
 
@@ -196,13 +169,6 @@ def Encrypt():
     fDiff = np.zeros_like(imgVec)
     rDiff = np.zeros_like(imgVec)
     
-    if cfg.RESIZE_TO_DEBUG==True:
-        print("\nimgVec=\n")
-        print(imgVec)
-
-    if cfg.ENABLE_IMG_VECTOR_EXPERIMENT==True:
-        writeimgVec(imgVec,cfg.IMG_VECTOR_ENCRYPT_PATH)    
-    
     # Initiliaze diffusion constants
     secGen = secrets.SystemRandom()
     alpha = secGen.randint(1,cfg.DIFFINTLIM)
@@ -211,40 +177,89 @@ def Encrypt():
     mid = mn//2
     f, r = cfg.f, cfg.r
     
+    if cfg.DEBUG_CONTROL_PARAMETERS==True:
+        print("\nalpha="+str(alpha))
+        print("\nbeta="+str(beta))
     # Forward Diffusion
-    j=0
     fDiff[0] = f + imgVec[0] + alpha*(P1[0] if f&1==0 else P1[1]) # 0
-    # 1->(mid-1)
-    for i in range(1, mid):
-        fDiff[i] = fDiff[i-1] + imgVec[i] + alpha*(P1[2*i] if fDiff[i-1]&1==0 else P1[2*i + 1])
-    # mid->(mn-1)
-    for i in range(mid, mn): 
+
+    if f&1==0:
+        print("\nf="+str(f)+"\timgVec[0]="+str(imgVec[0])+"\tP1[0]="+str(P1[0]))
+    else:
+        print("\nf="+str(f)+"\timgVec[0]="+str(imgVec[0])+"\tP1[1]="+str(P1[1]))    
+
+    print("\nFDIFF PHASE 1\n")    
+    for i in range(1, mid): # 1->(mid-1)
+        fDiff[i] = int(fDiff[i-1] + imgVec[i] + alpha*(P1[2*i] if fDiff[i-1]&1==0 else P1[2*i + 1]))
+    
+        if fDiff[i-1]&1==0:
+            print("\ni="+str(i))
+            print("\nfDiff[i]="+str(fDiff[i])+"\tfDiff[i-1]="+str(fDiff[i-1])+"\timgVec[i]="+str(imgVec[i])+"\tP1[2*i]="+str(P1[2*i]))
+        else:
+            print("\ni="+str(i))
+            print("\nfDiff[i]="+str(fDiff[i])+"\tfDiff[i-1]="+str(fDiff[i-1])+"\timgVec[i]="+str(imgVec[i])+"\tP1[2*i+1]="+str(P1[2*i+1]))         
+    
+    print("\nFDIFF 2nd PHASE\n")        
+    j = 0
+    print("\nj before starting FDIFF 2nd PHASE\n="+str(j))
+    for i in range(mid, mn): # mid->(mn-1)
         fDiff[i] = fDiff[i-1] + imgVec[i] + alpha*(P1[2*j] if fDiff[i-1]&1==0 else P1[2*j + 1])
+        
+        
+        if fDiff[i-1]&1==0:
+            print("\ni="+str(i))
+            print("\nj="+str(j))
+            print("\nfDiff[i]="+str(fDiff[i])+"\tfDiff[i-1]="+str(fDiff[i-1])+"\timgVec[i]="+str(imgVec[i])+"\tP1[2*j]="+str(P1[2*j]))
+        else:
+            print("\ni="+str(i))
+            print("\nj="+str(j))
+            print("\nfDiff[i]="+str(fDiff[i])+"\tfDiff[i-1]="+str(fDiff[i-1])+"\timgVec[i]="+str(imgVec[i])+"\tP1[2*j+1]="+str(P1[2*j+1]))
         j += 1
 
-    if cfg.ENABLE_FDIFF_EXPERIMENT==True:    
-        writefDiff(fDiff,cfg.FDIFF_EXPERIMENT_PATH)    
-    
+    print("\nRDIFF 1st PHASE\n")
     # Reverse Diffusion
     rDiff[mn-1] = r + fDiff[mn-1] + beta*(P2[mn-2] if r&1==0 else P2[mn-1]) # (mn-1)
     
-    j = mid-1
-    # (mn-2)->mid
-    for i in range(mn-2, mid-1, -1): 
-        rDiff[i] = rDiff[i+1] + fDiff[i] + beta*(P2[2*j] if rDiff[i+1]&1==0 else P2[2*j + 1])
-        j -= 1
-    # (mid-1)->0
-    for i in range(mid-1, -1, -1): 
-        rDiff[i] = rDiff[i+1] + fDiff[i] + beta*(P2[2*i] if rDiff[i+1]&1==0 else P2[2*i + 1])
+    if r&1==0:
+        print("\nrDiff[mn-1]="+str(rDiff[mn-1])+"\tr="+str(r)+"\tfDiff[mn-1]="+str(fDiff[mn-1])+"\tP2[mn-2]="+str(P2[mn-2]))
+    else:
+        print("\nrDiff[mn-1]="+str(rDiff[mn-1])+"\tr="+str(r)+"\tfDiff[mn-1]="+str(fDiff[mn-1])+"\tP2[mn-1]="+str(P2[mn-1]))     
 
-    #fDiff=count_greater_255(fDiff)
-    #rDiff=count_greater_255(rDiff)   
     
-    if cfg.DEBUG_DIFFUSION==True:
+    j = mid-1
+    print("\nj before starting RDIFF 1st PHASE="+str(j))
+    for i in range(mn-2, mid-1, -1): # (mn-2)->mid
+        rDiff[i] = rDiff[i+1] + fDiff[i] + beta*(P2[2*j] if rDiff[i+1]&1==0 else P2[2*j + 1])
+        
+        if rDiff[i+1]&1==0:
+            print("\ni="+str(i))
+            print("\nj="+str(j))
+            print("\nrDiff[i]="+str(rDiff[i])+"\trDiff[i+1]="+str(rDiff[i+1])+"\tfDiff[i]="+str(fDiff[i])+"\tP2[2*j]="+str(P2[2*j]))
+        else:
+            print("\ni="+str(i))
+            print("\nj="+str(j))
+            print("\nrDiff[i]="+str(rDiff[i])+"\trDiff[i+1]="+str(rDiff[i+1])+"\tfDiff[i]="+str(fDiff[i])+"\tP2[2*j+1]="+str(P2[2*j+1]))   
+
+        j -= 1
+    
+    print("\nRDIFF 2nd PHASE\n")    
+    for i in range(mid-1, -1, -1): # (mid-1)->0
+        rDiff[i] = rDiff[i+1] + fDiff[i] + beta*(P2[2*i] if rDiff[i+1]&1==0 else P2[2*i + 1])
+        
+        if rDiff[i+1]&1==0:
+            print("\ni="+str(i))
+            print("\nrDiff[i]="+str(rDiff[i])+"\trDiff[i+1]="+str(rDiff[i+1])+"\tfDiff[i]="+str(fDiff[i])+"\tP2[2*i]="+str(P2[2*i]))
+        else:
+            print("\ni="+str(i))
+            print("\nrDiff[i]="+str(rDiff[i])+"\trDiff[i+1]="+str(rDiff[i+1])+"\tfDiff[i]="+str(fDiff[i])+"\tP2[2*i+1]="+str(P2[2*i+1]))
+    
+    if cfg.RESIZE_TO_DEBUG==True:
+        print("\nimgVec=")
+        print(imgVec)
+        print("\nrDiff=")
+        print(rDiff)
         print("\nfDiff=")
         print(fDiff)
-        print("\nrDIff=")
-        print(rDiff) 
 
     # Log diffusion parameters for decryption
     with open("temp/diff.txt","w+") as f:
