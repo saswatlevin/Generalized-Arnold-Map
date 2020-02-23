@@ -14,9 +14,27 @@
   #include <string>   /*For strings*/
   #include <fstream>  /*For file handling*/
   #include <bitset>   /*For to_string()*/
-  #include "CONFIG.hpp"
+  #include <opencv2/opencv.hpp> /*For OpenCV*/
+  #include <opencv2/highgui/highgui.hpp>
   
-  struct constants
+  #define RAND_UPPER 32
+  #define EXP 100000000000000   
+  #define UNZERO 0.0000001
+  #define NUM_SKIPOFFSET_ARGS 2
+  #define WRITE_SINGLE_ARG 0
+  #define WRITE_MULTIPLE_ARGS 1
+  #define M 5
+  #define N 5
+  #define TOTAL (M*N) 
+  #define R_UPPER (M*N)-N
+  #define MID ((M*N)/2)
+  #define SEED1 30
+  #define SEED2 32
+
+  
+  using namespace std;
+  using namespace cv;   
+     struct constants
      {
       uint8_t alpha;
       uint8_t beta;
@@ -191,6 +209,7 @@
     }
    
    return U; 
- }
+ }   
+     
 
 #endif

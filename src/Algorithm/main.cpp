@@ -1,25 +1,13 @@
   #include <iostream> /*For IO*/
-  #include <functional>
   #include <cstdint>  /*For standardized data types*/
-  #include <cstdio>   /*For printf*/
-  #include <random>   /*For random number generation*/
-  #include <vector>   /*For dynamic arrays*/
-  #include <numeric>  /*For std::iota*/
-  #include <cmath>    /*For fmod to do x%1 , y%1 */
-  #include <array>    /*For static arrays*/
-  #include <string>   /*For strings*/
-  #include <fstream>  /*For file handling*/
-  #include <cstdlib>  /*For abs() */
-  #include <ctime>    /*To seed srand()*/ 
-  #include "CONFIG.hpp"
   #include "functions.hpp"
-  
   using namespace std;
-  
-     
+  using namespace cv;
   
   int main()
-  {  
+  { 
+    Mat image;
+     
     uint8_t alpha1=0,beta1=0,a1=0,b1=0,offset1=0;
     uint8_t alpha2=0,beta2=0,a2=0,b2=0,offset2=0;
     
@@ -62,7 +50,7 @@
     P1=generateP(a1,b1,c1,skipped_x1,skipped_y1,UNZERO);
     U=generateU(r1,P1);
 
-    printf("\nP1=");
+    /*printf("\nP1=");
     for(uint8_t i=0;i<TOTAL;++i)
     {
       cout<<P1[i]<<" ";
@@ -73,7 +61,7 @@
     {
       cout<<U[i]<<" ";
     } 
-      printf("\na1=%d\tb1=%d\tc1=%d\tx1=%f\ty1=%f\tr1=%d\toffset1=%d\tskipped_x1=%f\tskipped_y1=%f\t",a1,b1,c1,x1,y1,r1,offset1,skipped_x1,skipped_y1); 
+      printf("\na1=%d\tb1=%d\tc1=%d\tx1=%f\ty1=%f\tr1=%d\toffset1=%d\tskipped_x1=%f\tskipped_y1=%f\t",a1,b1,c1,x1,y1,r1,offset1,skipped_x1,skipped_y1);*/ 
 
     /*Second set of Constants*/
     constants_array2=initializeConstants(SEED2,6);
@@ -93,7 +81,7 @@
     P2=generateP(a2,b2,c2,skipped_x2,skipped_y2,UNZERO);
     V=generateU(r2,P2);
     
-    printf("\nP2=");
+    /*printf("\nP2=");
     for(uint8_t i=0;i<TOTAL;++i)
     {
       cout<<P2[i]<<" ";
@@ -105,7 +93,7 @@
       cout<<V[i]<<" ";
     } 
          
-    printf("\na2=%d\tb2=%d\tc2=%d\tx2=%f\ty2=%f\tr2=%d\toffset2=%d\tskipped_x2=%f\tskipped_y2=%f\t",a2,b2,c2,x2,y2,r2,offset2,skipped_x2,skipped_y2);
+    printf("\na2=%d\tb2=%d\tc2=%d\tx2=%f\ty2=%f\tr2=%d\toffset2=%d\tskipped_x2=%f\tskipped_y2=%f\t",a2,b2,c2,x2,y2,r2,offset2,skipped_x2,skipped_y2);*/
 
     //isNotDecimal=checkDecimal(P1);
     //cout<<"\nIsNotDecimal="<<isNotDecimal;
