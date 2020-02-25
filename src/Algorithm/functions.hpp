@@ -25,6 +25,11 @@
   #define WRITE_MULTIPLE_ARGS 1
   #define SEED1 30
   #define SEED2 32
+ 
+  #define RESIZE_TO_DEBUG 1
+  #define DEBUG_CONSTANTS 1
+  #define DEBUG_VECTORS   1
+  #define DEBUG_IMAGES    0
   
   using namespace std;
   using namespace cv;   
@@ -47,12 +52,16 @@
   constants initializeConstants(uint32_t,uint32_t,uint32_t); 
   void writeToFile(std::string,uint8_t,uint8_t,uint8_t,uint8_t,uint16_t,float,float,int32_t,uint8_t,bool);   
   std::vector<float> skipOffset(uint8_t,uint8_t,uint16_t,float,float,float,uint8_t);
-  std::vector<float> generateP(std::vector<float>,uint8_t,uint8_t,uint16_t,float,float,float,uint32_t,uint32_t);
-  std::vector<uint32_t> generateU(std::vector<uint32_t>,std::vector<float>,int32_t,uint32_t,uint32_t N);   
-  std::vector<uint8_t> flattenGrayScaleImage(Mat image,uint32_t,uint32_t);
+  void generateP(std::vector<float> &P,uint8_t,uint8_t,uint16_t,float,float,float,uint32_t,uint32_t);
+  void generateU(std::vector<uint32_t> &U,std::vector<float>,int32_t,uint32_t,uint32_t);   
+  std::vector<uint8_t> flattenGrayScaleImage(cv::Mat image);
+  void printImageContents(cv::Mat image);
+  std::vector<int32_t> readFromFile(std::string,std::vector<int32_t>);
   bool checkDecimal(std::vector<float>,uint32_t);
-    
   
+
+    
+
   bool checkDecimal(std::vector<float> arr,uint32_t TOTAL)
   {
     printf("\nIn checkDecimal\n");
@@ -65,7 +74,21 @@
     }
     return 0;
   }
-    
+  
+  void printImageContents(cv::Mat image)
+  {
+    cout<<"\nImage Matrix=";
+    for(uint8_t i=0;i<image.rows;++i)
+    { printf("\n");
+      //printf("\ni=%d\t",i);
+      for(uint8_t j=0;j<image.cols;++j)
+      {
+        //printf("\nj=%d\t",j);
+        printf("%d\t",image.at<uchar>(i,j)); 
+      }
+    }
+  }  
+  
   std::vector<float> skipOffset(uint8_t a,uint8_t b,uint16_t c,float x,float y,float unzero,uint8_t offset)
   {
     printf("\nIn skipOffset\n");
@@ -118,83 +141,100 @@
     return constants_array;
   }
   
-  void writeToFile(std::string filename,uint8_t alpha,uint8_t beta,uint8_t a,uint8_t b,uint16_t c,float x,float y,int32_t r,uint8_t offset,bool mode)
+void writeToFile(std::string filename,uint8_t alpha,uint8_t beta,uint8_t a,uint8_t b,uint16_t c,float x,float y,int32_t r,uint8_t offset,bool mode)
   { 
     printf("\nIn WriteToFile\n");
-    std::string stringToWrite=std::string("");
+    //std::string stringToWrite=std::string("");
     std::string constant=std::string("");
     
-    if (mode==1)
+    /*if (mode==1)
     {
      constant=std::to_string(alpha);
      stringToWrite+=constant;
      stringToWrite+="\n";
      return;
-    }
+    }*/
     
     
-    constant=std::to_string(alpha);
-    stringToWrite+=constant;
-    stringToWrite+="\n";
+    constant.append(std::to_string(alpha));
+    constant.append("\n");
     
-    constant=std::to_string(beta);
-    stringToWrite+=constant;
-    stringToWrite+="\n";
+    constant.append(std::to_string(beta));
+    constant.append("\n");
     
-    constant=std::to_string(a);
-    stringToWrite+=constant;
-    stringToWrite+="\n";
-
-    constant=std::to_string(b);
-    stringToWrite+=constant;
-    stringToWrite+="\n";
+    constant.append(std::to_string(a));
+    constant.append("\n");
     
-    constant=std::to_string(c);
-    stringToWrite+=constant;
-    stringToWrite+="\n";
+    constant.append(std::to_string(b));
+    constant.append("\n");
     
-    constant=std::to_string(x);
-    stringToWrite+=constant;
-    stringToWrite+="\n";
+    constant.append(std::to_string(c));
+    constant.append("\n");
+    
+    constant.append(std::to_string(x));
+    constant.append("\n");
   
-    constant=std::to_string(y);
-    stringToWrite+=constant;
-    stringToWrite+="\n";
+    constant.append(std::to_string(y));
+    constant.append("\n");
+    
+    constant.append(std::to_string(offset));
+    constant.append("\n");
 
-    constant=std::to_string(offset);
-    stringToWrite+=constant;
-    stringToWrite+="\n";
   
     //cout<<"\nstringToWrite= "<<stringToWrite;
     /*Output stream to write to file*/
-    std::ofstream file;
-    file.open(filename);
-    file << stringToWrite;
+    //cout<<"\nCONSTS=";
+    //cout<<constant;
+    std::ofstream file(filename);
+    file << constant;
     file.close();
+    
 }  
   
-  std::vector<float> generateP(std::vector<float> P,uint8_t a,uint8_t b,uint16_t c,float x,float y,float unzero,uint32_t MID,uint32_t TOTAL)
+  std::vector<int32_t> readFromFile(std::string filename,std::vector<int32_t> retrieved_constants_array)
+  {
+    int32_t constant; 
+    uint8_t i=0;
+    std::fstream inFile;
+    inFile.open(filename,ios::in);
+    if(!inFile)
+    {
+      cout<<"\nFile Not Found\nExiting...";
+      exit(0);
+    }
+    
+    while (inFile >> constant)
+    {
+       retrieved_constants_array.insert(retrieved_constants_array.begin()+i,constant);
+       cout<<"\n"<<retrieved_constants_array[i];
+       ++i;
+    }
+    inFile.close();
+    return retrieved_constants_array;  
+  }
+  
+  void generateP(std::vector<float> &P,uint8_t a,uint8_t b,uint16_t c,float x,float y,float unzero,uint32_t MID,uint32_t TOTAL)
   {  
     
     //std::vector<float> P(TOTAL);
     printf("\nIn GenerateP\n");
     //float intermediate_x=0,intermediate_y=0;
     printf("\nBefore GenP loop\n");
-    for(uint32_t i=0;i<MID+1;++i)
+    for(uint32_t i=0;i<MID;++i)
     { 
-      
+      //printf("\ni=%d\t",i);
       x=fmod((x+a*y),1.0)+unzero;
       y=fmod((b*x+c*y),1.0)+unzero;
-      //printf("\ni=%d\t",i);
+      
       P[2*i]=x;
       P[2*i+1]=y;
     }    
     
-    return P;
+    //return P;
   } 
     
 
-  std::vector<uint32_t> generateU(std::vector<uint32_t> U,std::vector<float> P,int32_t r,uint32_t M,uint32_t N)
+  void generateU(std::vector<uint32_t> &U,std::vector<float> P,int32_t r,uint32_t M,uint32_t N)
   {
     printf("\nIn genU\n");
     //float dN=(float)N;
@@ -211,13 +251,14 @@
       U[i]=remainder;
     }
    
-   return U; 
+   //return U; 
  }   
      
- std::vector<uint8_t> flattenGrayScaleImage(cv::Mat image,uint32_t M,uint32_t N)
+ std::vector<uint8_t> flattenGrayScaleImage(cv::Mat image)
  {
-    std::vector<uint8_t> img_vec(M*N);
-    image=cv::Mat(img_vec).reshape(-1);
+    //std::vector<uint8_t> img_vec(M*N);
+    
+    std::vector<uint8_t> img_vec((uint8_t*)image.data, (uint8_t*)image.data + image.rows * image.cols);
     
     return img_vec;
  }
